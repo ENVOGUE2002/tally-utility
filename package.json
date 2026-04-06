@@ -1,0 +1,1 @@
+{"name": "tally-utility","version": "1.0.0","scripts": {"install": "npm install","start": "node index.js"}}
