@@ -1,0 +1,4 @@
+date,styleNumber,color,operationName,operationRate,workerName,size,quantity,remarks
+2026-04-03,ST-101,Navy,Singer,12,Rahim,S,100,Day shift
+2026-04-03,ST-101,Navy,Overlock,5,Karim,M,120,Day shift
+2026-04-03,ST-102,Black,Singer,10,Salim,L,60,Night shift
