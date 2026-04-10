@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Piece Rate Calculator</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="config.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">Garment Factory</p>
+      <h1>Piece Rate Calculator</h1>
+      <p class="company-name">ENVOGUE CLOTHING</p>
+      <p class="intro">Create styles, enter cutting and checking details, and see billing automatically.</p>
+      <nav class="nav">
+        <button class="nav-link active" data-tab="dashboard">Dashboard</button>
+        <button class="nav-link" data-tab="styles">Style Master</button>
+        <button class="nav-link" data-tab="cutting">Cutting Entry</button>
+        <button class="nav-link" data-tab="production">Production Entry</button>
+        <button class="nav-link" data-tab="acceptance">Acceptance Entry</button>
+        <button class="nav-link" data-tab="dispatch">Dispatch Entry</button>
+        <button class="nav-link" data-tab="reports">Reports</button>
+      </nav>
+      <div class="sidebar-card">
+        <h2>Data</h2>
+        <p>Saved in this browser. Export your data to move it to another device.</p>
+        <p id="storageModeBadge" class="status-badge">Local browser only</p>
+        <p id="syncStatusText" class="status-text">Cloud sync is not configured yet.</p>
+        <div class="action-row">
+          <button id="exportBtn" class="ghost">Export</button>
+          <label class="ghost file-label">Import<input type="file" id="importInput" accept="application/json"></label>
+        </div>
+      </div>
+      <div class="sidebar-card">
+        <h2>Cloud Sync</h2>
+        <p>Connect Supabase to share the same data across multiple PCs.</p>
+        <ul class="sidebar-list">
+          <li>Copy your Project URL into `config.js`</li>
+          <li>Copy your anon key into `config.js`</li>
+          <li>Run the SQL from `supabase-schema.sql`</li>
+        </ul>
+      </div>
+      <div class="sidebar-card">
+        <h2>Sizes</h2>
+        <p>Use any sizes, for example `28,30,32,34,36,3XL,4XL`.</p>
+        <form id="sizeSettingsForm" class="stack">
+          <label>
+            Size List
+            <textarea id="sizeListInput" rows="4" placeholder="XS,S,M,L,XL,XXL"></textarea>
+          </label>
+          <button type="submit" class="ghost">Save Sizes</button>
+        </form>
+      </div>
+      <div class="sidebar-card">
+        <h2>Section Access</h2>
+        <p>Create a separate access code and share link for each entry section.</p>
+        <form id="accessCodeForm" class="stack">
+          <div class="access-code-grid">
+            <label>Style Master<input type="password" name="styles" placeholder="Set code"></label>
+            <button type="button" class="ghost small" data-copy-access-link="styles">Copy Link</button>
+            <label>Cutting<input type="password" name="cutting" placeholder="Set code"></label>
+            <button type="button" class="ghost small" data-copy-access-link="cutting">Copy Link</button>
+            <label>Production<input type="password" name="production" placeholder="Set code"></label>
+            <button type="button" class="ghost small" data-copy-access-link="production">Copy Link</button>
+            <label>Acceptance<input type="password" name="acceptance" placeholder="Set code"></label>
+            <button type="button" class="ghost small" data-copy-access-link="acceptance">Copy Link</button>
+            <label>Dispatch<input type="password" name="dispatch" placeholder="Set code"></label>
+            <button type="button" class="ghost small" data-copy-access-link="dispatch">Copy Link</button>
+          </div>
+          <button type="submit" class="ghost">Save Access Codes</button>
+          <p id="accessCodeStatus" class="field-hint">Set a code first, then use Copy Link for that section.</p>
+        </form>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="tab-panel active" id="dashboard">
+        <div class="panel-header"><div><p class="eyebrow">Overview</p><h2>Dashboard</h2></div></div>
+        <div class="stats-grid" id="dashboardStats"></div>
+        <div class="grid-two">
+          <section class="card">
+            <div class="section-title"><h3>Style Billing Summary</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Style</th><th>Color</th><th>Produced Qty</th><th>CMT Rate</th><th>Billing</th></tr></thead><tbody id="styleBillingTable"></tbody></table></div>
+          </section>
+          <section class="card">
+            <div class="section-title"><h3>Worker Billing Summary</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Worker</th><th>Operation</th><th>Qty</th><th>Amount</th></tr></thead><tbody id="workerBillingTable"></tbody></table></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="styles">
+        <div class="panel-header"><div><p class="eyebrow">Master Data</p><h2>Create Style and Rates</h2></div></div>
+        <div class="grid-two">
+          <section class="card">
+            <div class="section-title"><h3>New Style</h3></div>
+            <div class="action-row">
+              <label class="ghost file-label">Upload Styles CSV<input type="file" id="styleImportInput" accept=".csv,text/csv"></label>
+              <label class="ghost file-label">Select Style Images<input type="file" id="styleImageImportInput" accept="image/*" multiple></label>
+              <a class="ghost file-label" href="style-sample.csv" download>Style Sample</a>
+            </div>
+            <p class="status-text">For CSV image import, put the image file name in the `image` column, then select those image files here.</p>
+            <form id="styleForm" class="form-grid">
+              <label>Style Number<input type="text" name="styleNumber" required placeholder="ST-101"></label>
+              <label>Buyer Name<input type="text" name="buyerName"></label>
+              <label>Style Name<input type="text" name="styleName"></label>
+              <label>Color<input type="text" name="color"></label>
+              <label>Order Qty<input type="number" name="orderQty" min="0" step="1" placeholder="0"></label>
+              <label>Total CMT Rate (Rs)<input type="number" name="cmtRate" min="0" step="0.01" required></label>
+              <label>Service Charge (%)<input type="number" name="serviceChargePct" min="0" step="0.01" placeholder="0"></label>
+              <label>Image URL<input type="text" name="image"></label>
+              <label>Upload Style Image<input type="file" name="imageFile" id="styleImageFile" accept="image/*"></label>
+              <div class="stack gap-sm">
+                <button type="button" id="pasteStyleImageBtn" class="ghost">Paste Image From Clipboard</button>
+                <p id="styleImagePasteStatus" class="field-hint">You can also click here after copying a screenshot and press `Ctrl + V`.</p>
+              </div>
+              <div class="style-form-preview full-span" id="styleFormImagePreview" hidden>
+                <img id="styleFormImagePreviewImg" class="style-thumb" alt="Style form preview">
+              </div>
+              <label class="full-span">Notes<textarea name="notes" rows="3"></textarea></label>
+              <div class="full-span">
+                <div class="section-title compact"><h3>Operation Rates</h3><button type="button" id="addOperationRateBtn" class="ghost small">Add Operation</button></div>
+                <div id="operationRateRows" class="stack gap-sm"></div>
+              </div>
+              <div class="full-span action-row"><button type="submit">Save Style</button><button type="reset" class="ghost">Clear</button></div>
+            </form>
+          </section>
+          <section class="card">
+            <div class="section-title"><h3>Saved Styles</h3></div>
+            <label class="list-search">
+              Search Style
+              <input type="text" id="styleCardSearch" placeholder="Search full style no. or last 2-3 digits">
+            </label>
+            <div id="styleCards" class="stack scroll-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="cutting">
+        <div class="panel-header"><div><p class="eyebrow">Daily Entry</p><h2>Cutting Details</h2></div></div>
+        <div class="grid-two">
+          <section class="card">
+            <div class="section-title"><h3>New Cutting Entry</h3></div>
+            <div class="action-row">
+              <label class="ghost file-label">Upload Cutting CSV<input type="file" id="cuttingImportInput" accept=".csv,text/csv"></label>
+              <a class="ghost file-label" href="cutting-sample.csv" download>Cutting Sample</a>
+            </div>
+            <form id="cuttingForm" class="form-grid">
+              <label>Date<input type="date" name="date" required></label>
+              <label>Search Style<input type="text" id="cuttingStyleSearch" placeholder="Full style no. or last 2-3 digits"></label>
+              <label>Style<select name="styleId" required id="cuttingStyleSelect"></select></label>
+              <label>Service<input type="text" name="service" placeholder="Service"></label>
+              <label class="full-span">Remarks<input type="text" name="remarks"></label>
+              <div class="full-span"><div class="section-title compact"><h3>Size-wise Quantity</h3></div><div id="cuttingSizeRows" class="size-grid"></div></div>
+              <div class="full-span action-row"><button type="submit">Save Cutting</button></div>
+            </form>
+          </section>
+          <section class="card">
+            <div class="section-title"><h3>Cutting Entries</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Style</th><th>Service</th><th>Order Qty</th><th>Total Qty</th><th>Size-wise</th><th>Remarks</th><th>Action</th></tr></thead><tbody id="cuttingEntriesTable"></tbody></table></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="production">
+        <div class="panel-header"><div><p class="eyebrow">Daily Entry</p><h2>Production and Worker Billing</h2></div></div>
+        <div class="grid-two">
+          <section class="card">
+            <div class="section-title"><h3>Style-wise Production Entry</h3></div>
+            <div class="action-row">
+              <label class="ghost file-label">Upload Style Production CSV<input type="file" id="styleProductionImportInput" accept=".csv,text/csv"></label>
+              <a class="ghost file-label" href="style-production-sample.csv" download>Style Production Sample</a>
+            </div>
+            <form id="styleProductionForm" class="form-grid">
+              <label>Date<input type="date" name="date" required></label>
+              <label>Search Style<input type="text" id="styleProductionStyleSearch" placeholder="Full style no. or last 2-3 digits"></label>
+              <label>Style<select name="styleId" required id="styleProductionStyleSelect"></select></label>
+              <label>Total Qty Produced<input type="number" name="totalQty" min="0" step="1" placeholder="Use when size-wise is not available"></label>
+              <label class="full-span">Remarks<input type="text" name="remarks"></label>
+              <div class="full-span"><div class="section-title compact"><h3>Size-wise Produced Quantity</h3></div><div id="styleProductionSizeRows" class="size-grid"></div></div>
+              <div class="full-span action-row"><button type="submit">Save Style Production</button></div>
+            </form>
+          </section>
+          <section class="card">
+            <div class="section-title"><h3>Style Production Entries</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Style</th><th>Total Qty</th><th>Size-wise</th><th>Remarks</th><th>Action</th></tr></thead><tbody id="styleProductionEntriesTable"></tbody></table></div>
+          </section>
+        </div>
+        <div class="grid-two">
+          <section class="card">
+            <div class="section-title"><h3>New Production Entry</h3></div>
+            <div class="action-row">
+              <label class="ghost file-label">Upload Production CSV<input type="file" id="productionImportInput" accept=".csv,text/csv"></label>
+              <a class="ghost file-label" href="production-sample.csv" download>Production Sample</a>
+            </div>
+            <form id="productionForm" class="form-grid">
+              <label>Date<input type="date" name="date" required></label>
+              <label>Search Style<input type="text" id="productionStyleSearch" placeholder="Full style no. or last 2-3 digits"></label>
+              <label>Style<select name="styleId" required id="productionStyleSelect"></select></label>
+              <label>Operation<select name="operationName" required id="productionOperationSelect"></select></label>
+              <label>Worker / Contractor<input type="text" name="workerName" required></label>
+              <label>Size<select name="size" required id="productionSizeSelect"></select></label>
+              <label>Quantity<input type="number" name="quantity" min="0" required></label>
+              <label class="full-span">Remarks<input type="text" name="remarks"></label>
+              <div class="full-span action-row"><button type="submit">Save Production</button></div>
+            </form>
+          </section>
+          <section class="card">
+            <div class="section-title"><h3>Production Entries</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Style</th><th>Operation</th><th>Worker</th><th>Size</th><th>Qty</th><th>Remarks</th><th>Action</th></tr></thead><tbody id="productionEntriesTable"></tbody></table></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="acceptance">
+        <div class="panel-header"><div><p class="eyebrow">Daily Entry</p><h2>Accepted and Rejected Goods</h2></div></div>
+        <div class="grid-two">
+          <section class="card">
+            <div class="section-title"><h3>New Acceptance Entry</h3></div>
+            <form id="acceptanceForm" class="form-grid">
+              <label>Date<input type="date" name="date" required></label>
+              <label>Search Style<input type="text" id="acceptanceStyleSearch" placeholder="Full style no. or last 2-3 digits"></label>
+              <label>Style<select name="styleId" required id="acceptanceStyleSelect"></select></label>
+              <label class="full-span">Remarks<input type="text" name="remarks"></label>
+              <div class="full-span"><div class="section-title compact"><h3>Size-wise Accepted and Rejected</h3></div><div id="acceptanceSizeRows" class="acceptance-grid"></div></div>
+              <div class="full-span action-row"><button type="submit">Save Acceptance</button></div>
+            </form>
+          </section>
+          <section class="card">
+            <div class="section-title"><h3>Acceptance Entries</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Style</th><th>Accepted</th><th>Rejected</th><th>Size-wise</th><th>Remarks</th><th>Action</th></tr></thead><tbody id="acceptanceEntriesTable"></tbody></table></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="dispatch">
+        <div class="panel-header"><div><p class="eyebrow">Daily Entry</p><h2>Dispatch Details</h2></div></div>
+        <div class="grid-two">
+          <section class="card">
+            <div class="section-title"><h3>New Dispatch Entry</h3></div>
+            <form id="dispatchForm" class="form-grid">
+              <label>Date<input type="date" name="date" required></label>
+              <label>Search Style<input type="text" id="dispatchStyleSearch" placeholder="Full style no. or last 2-3 digits"></label>
+              <label>Style<select name="styleId" required id="dispatchStyleSelect"></select></label>
+              <label class="full-span">Remarks<input type="text" name="remarks"></label>
+              <div class="full-span"><div class="section-title compact"><h3>Size-wise Dispatch Quantity</h3></div><div id="dispatchSizeRows" class="size-grid"></div></div>
+              <div class="full-span action-row"><button type="submit">Save Dispatch</button></div>
+            </form>
+          </section>
+          <section class="card">
+            <div class="section-title"><h3>Dispatch Entries</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date</th><th>Style</th><th>Total Qty</th><th>Size-wise</th><th>Remarks</th><th>Action</th></tr></thead><tbody id="dispatchEntriesTable"></tbody></table></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="reports">
+        <div class="panel-header"><div><p class="eyebrow">Reports</p><h2>Reconciliation and Billing</h2></div></div>
+        <section class="card report-controls">
+          <div class="action-row">
+            <label>Report Date<input type="date" id="reportDate"></label>
+            <button type="button" id="clearReportDate" class="ghost">Clear Date</button>
+            <button type="button" id="downloadStyleAmountReport" class="ghost">Download Style Amount CSV</button>
+            <button type="button" id="downloadCuttingReport" class="ghost">Download Cutting Report XLSX</button>
+            <button type="button" id="downloadInternalChallan" class="ghost">Download Internal Challan PDF</button>
+            <button type="button" id="downloadFlowReport" class="ghost">Download Cut-Make-Dispatch XLSX</button>
+          </div>
+        </section>
+        <div class="grid-two">
+          <section class="card">
+            <div class="section-title"><h3>Style-wise Amount Report</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Date Filter</th><th>Style</th><th>Color</th><th>Produced Qty</th><th>CMT Rate</th><th>Service %</th><th>Service Amt</th><th>Total Amount</th></tr></thead><tbody id="styleAmountReportTable"></tbody></table></div>
+          </section>
+          <section class="card">
+            <div class="section-title"><h3>Reconciliation Report</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Style</th><th>Cut Qty</th><th>Produced Qty</th><th>Accepted Qty</th><th>Rejected Qty</th><th>Balance</th></tr></thead><tbody id="reconciliationTable"></tbody></table></div>
+          </section>
+        </div>
+        <div class="grid-two">
+          <section class="card">
+            <div class="section-title"><h3>Cutting Report</h3></div>
+            <div class="table-wrap"><table><thead id="cuttingReportHead"></thead><tbody id="cuttingReportTable"></tbody></table></div>
+          </section>
+          <section class="card">
+            <div class="section-title"><h3>Size-wise Dispatch Details</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Photo</th><th>Style</th><th>Color</th><th>Size</th><th>Cut</th><th>Make</th><th>Dispatch</th><th>Amount</th><th>Balance</th></tr></thead><tbody id="dispatchReportTable"></tbody></table></div>
+          </section>
+        </div>
+        <div class="grid-two">
+          <section class="card">
+            <div class="section-title"><h3>Operation Costing</h3></div>
+            <div class="table-wrap"><table><thead><tr><th>Style</th><th>Operation</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody id="operationCostTable"></tbody></table></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="imagePreviewModal" class="image-modal" hidden>
+    <div class="image-modal-backdrop" data-close-image-preview="true"></div>
+    <div class="image-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="imagePreviewTitle">
+      <div class="image-modal-header">
+        <h3 id="imagePreviewTitle">Style Preview</h3>
+        <button type="button" id="closeImagePreview" class="ghost small">Close</button>
+      </div>
+      <img id="imagePreviewModalImg" class="image-modal-img" alt="Style preview">
+    </div>
+  </div>
+
+  <template id="operationRateTemplate">
+    <div class="inline-fields operation-rate-row">
+      <input type="text" name="operationName" placeholder="Operation name" required>
+      <input type="number" name="operationRate" min="0" step="0.01" placeholder="Rate" required>
+      <button type="button" class="ghost remove-operation">Remove</button>
+    </div>
+  </template>
+  <script src="app.js"></script>
+</body>
+</html>

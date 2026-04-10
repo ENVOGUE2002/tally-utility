@@ -1,0 +1,4 @@
+styleNumber,buyerName,styleName,color,orderQty,cmtRate,serviceChargePct,image,notes,operation1Name,operation1Rate,operation2Name,operation2Rate,operation3Name,operation3Rate,operation4Name,operation4Rate,operation5Name,operation5Rate,operation6Name,operation6Rate
+ST-101,Buyer A,Polo T-Shirt,Navy,500,30,5,st-101-navy.jpg,Basic polo style,Singer,12,Overlock,5,Kaaj,3,Button,4,Collar,4,Patti,2
+ST-101,Buyer A,Polo T-Shirt,Maroon,350,30,5,st-101-maroon.jpg,Second color in same style,Singer,12,Overlock,5,Kaaj,3,Button,4,Collar,4,Patti,2
+ST-102,Buyer B,Round Neck Tee,Black,300,22,3,https://example.com/styles/st-102-black.jpg,Summer order,Singer,10,Overlock,4,Kaaj,2,Button,2,Collar,2,Patti,2

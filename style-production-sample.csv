@@ -1,0 +1,4 @@
+date,styleNumber,color,totalQty,XS,S,M,L,XL,XXL,remarks
+2026-04-03,ST-101,Navy,300,0,100,120,80,0,0,Day shift output
+2026-04-03,ST-102,Black,60,0,0,0,60,0,0,Night shift output
+2026-04-04,ST-103,White,250,0,0,0,0,0,0,Only total qty available
